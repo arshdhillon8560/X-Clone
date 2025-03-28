@@ -507,6 +507,11 @@
   }
 
   fetchPosts();
+  function closePostModal() {
+  document.getElementById('modalPostContent').value = '';
+  document.getElementById('postModal').classList.add('hidden');
+}
+
 
     </script>
 </body>
