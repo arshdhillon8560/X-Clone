@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -83,15 +84,19 @@ app.post('/api/posts/:id/like', async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     const userId = req.body.userId;
-    if (post.likedBy.includes(userId)) {
-      post.likes--;
-      post.likedBy.pull(userId);
+    if (!post) return res.status(404).json({ success: false, error: 'Post not found' });
+
+    const isLiked = post.likedBy.includes(userId);
+    if (isLiked) {
+      post.likes = Math.max(0, post.likes - 1);
+      post.likedBy = post.likedBy.filter(id => id !== userId);
     } else {
       post.likes++;
       post.likedBy.push(userId);
     }
+
     await post.save();
-    res.json({ success: true, data: post });
+    res.json({ success: true, data: { likes: post.likes, likedBy: post.likedBy } });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }
@@ -101,15 +106,19 @@ app.post('/api/posts/:id/retweet', async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     const userId = req.body.userId;
-    if (post.retweetedBy.includes(userId)) {
-      post.retweets--;
-      post.retweetedBy.pull(userId);
+    if (!post) return res.status(404).json({ success: false, error: 'Post not found' });
+
+    const isRetweeted = post.retweetedBy.includes(userId);
+    if (isRetweeted) {
+      post.retweets = Math.max(0, post.retweets - 1);
+      post.retweetedBy = post.retweetedBy.filter(id => id !== userId);
     } else {
       post.retweets++;
       post.retweetedBy.push(userId);
     }
+
     await post.save();
-    res.json({ success: true, data: post });
+    res.json({ success: true, data: { retweets: post.retweets, retweetedBy: post.retweetedBy } });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }
@@ -118,6 +127,8 @@ app.post('/api/posts/:id/retweet', async (req, res) => {
 app.post('/api/posts/:id/reply', async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ success: false, error: 'Post not found' });
+
     const reply = {
       content: req.body.content,
       author: {
@@ -126,9 +137,10 @@ app.post('/api/posts/:id/reply', async (req, res) => {
       }
     };
     post.replies.push(reply);
-    post.replyCount++;
+    post.replyCount = post.replies.length;
+
     await post.save();
-    res.json({ success: true, data: post });
+    res.json({ success: true, data: post.replies });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }

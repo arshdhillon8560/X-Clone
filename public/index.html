@@ -331,271 +331,183 @@
 
     <script>
         let currentReplyPostId = null;
+  let allPosts = [];
 
-        // Fetch and display posts
-        async function fetchPosts() {
-            try {
-                const response = await fetch('/api/posts');
-                const result = await response.json();
-                
-                if (!result.success) {
-                    throw new Error(result.error || 'Failed to fetch posts');
-                }
+  async function fetchPosts() {
+    try {
+      const res = await fetch('/api/posts');
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'Failed to fetch posts');
+      allPosts = result.data;
+      renderPosts();
+    } catch (err) {
+      console.error('Error fetching posts:', err);
+    }
+  }
 
-                const posts = result.data;
-                if (!Array.isArray(posts)) {
-                    throw new Error('Invalid posts data received');
-                }
+  function renderPosts() {
+    const container = document.getElementById('postsContainer');
+    container.innerHTML = allPosts.map(post => createPostHTML(post)).join('');
+  }
 
-                const container = document.getElementById('postsContainer');
-                container.innerHTML = posts.map(post => createPostHTML(post)).join('');
-            } catch (err) {
-                console.error('Error fetching posts:', err);
-                const container = document.getElementById('postsContainer');
-                container.innerHTML = `
-                    <div class="p-4 text-center text-gray-500">
-                        <p>Failed to load posts. Please try again later.</p>
-                    </div>
-                `;
-            }
-        }
-
-        // Create post HTML
-        function createPostHTML(post) {
-            return `
-                <article class="border-b border-gray-800 p-4 hover:bg-gray-900/50 cursor-pointer">
-                    <div class="flex">
-                        <img class="w-12 h-12 rounded-full" src="${post.author.avatar}" alt="${post.author.name}">
-                        <div class="ml-4 flex-1">
-                            <div class="flex items-center">
-                                <span class="font-bold hover:underline">${post.author.name}</span>
-                                <span class="text-gray-500 ml-2">· ${new Date(post.createdAt).toLocaleDateString()}</span>
-                            </div>
-                            <p class="mt-2">${post.content}</p>
-                            <div class="flex justify-between mt-4 text-gray-500 max-w-md">
-                                <button onclick="openReplyModal('${post._id}', '${post.author.name}', '${post.content}')" class="flex items-center group">
-                                    <div class="p-2 rounded-full group-hover:bg-[#1d9bf0]/10">
-                                        <svg class="w-5 h-5 group-hover:text-[#1d9bf0]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                                        </svg>
-                                    </div>
-                                    <span class="ml-2">${post.replyCount || 0}</span>
-                                </button>
-                                <button onclick="handleRetweet('${post._id}')" class="flex items-center group">
-                                    <div class="p-2 rounded-full group-hover:bg-green-500/10">
-                                        <svg class="w-5 h-5 group-hover:text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                        </svg>
-                                    </div>
-                                    <span class="ml-2">${post.retweets || 0}</span>
-                                </button>
-                                <button onclick="handleLike('${post._id}')" class="flex items-center group">
-                                    <div class="p-2 rounded-full group-hover:bg-pink-500/10">
-                                        <svg class="w-5 h-5 group-hover:text-pink-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-                                        </svg>
-                                    </div>
-                                    <span class="ml-2">${post.likes || 0}</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </article>
-            `;
-        }
-
-        // Create new post
-        async function createPost(content = null) {
-            const postContent = content || document.getElementById('postContent').value;
-            if (!postContent.trim()) return;
-
-            try {
-                const response = await fetch('/api/posts', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        content: postContent,
-                        author: {
-                            name: 'Anonymous',
-                            avatar: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400&auto=format&fit=crop&q=60'
-                        }
-                    })
-                });
-
-                const result = await response.json();
-                if (!result.success) {
-                    throw new Error(result.error || 'Failed to create post');
-                }
-
-                document.getElementById('postContent').value = '';
-                await fetchPosts();
-            } catch (err) {
-                console.error('Error creating post:', err);
-                alert('Failed to create post. Please try again.');
-            }
-        }
-
-        // Handle like
-        async function handleLike(postId) {
-            try {
-                const response = await fetch(`/api/posts/${postId}/like`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ userId: 'anonymous' })
-                });
-
-                const result = await response.json();
-                if (!result.success) {
-                    throw new Error(result.error || 'Failed to like post');
-                }
-
-                await fetchPosts();
-            } catch (err) {
-                console.error('Error liking post:', err);
-                alert('Failed to like post. Please try again.');
-            }
-        }
-
-        // Handle retweet
-        async function handleRetweet(postId) {
-            try {
-                const response = await fetch(`/api/posts/${postId}/retweet`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ userId: 'anonymous' })
-                });
-
-                const result = await response.json();
-                if (!result.success) {
-                    throw new Error(result.error || 'Failed to retweet post');
-                }
-
-                await fetchPosts();
-            } catch (err) {
-                console.error('Error retweeting post:', err);
-                alert('Failed to retweet post. Please try again.');
-            }
-        }
-
-        // Handle search
-        let searchTimeout;
-        async function handleSearch(event) {
-            clearTimeout(searchTimeout);
-            const query = event.target.value;
-
-            searchTimeout = setTimeout(async () => {
-                try {
-                    const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-                    const result = await response.json();
-                    
-                    if (!result.success) {
-                        throw new Error(result.error || 'Failed to search posts');
-                    }
-
-                    const container = document.getElementById('postsContainer');
-                    if (result.data.length === 0) {
-                        container.innerHTML = `
-                            <div class="p-4 text-center text-gray-500">
-                                <p>No posts found matching your search.</p>
-                            </div>
-                        `;
-                    } else {
-                        container.innerHTML = result.data.map(post => createPostHTML(post)).join('');
-                    }
-                } catch (err) {
-                    console.error('Error searching posts:', err);
-                    alert('Failed to search posts. Please try again.');
-                }
-            }, 300);
-        }
-
-        // Modal functions
-        function openPostModal() {
-            document.getElementById('postModal').classList.remove('hidden');
-            document.getElementById('modalPostContent').focus();
-        }
-
-        function closePostModal() {
-            document.getElementById('postModal').classList.add('hidden');
-            document.getElementById('modalPostContent').value = '';
-        }
-
-        async function createPostFromModal() {
-            const content = document.getElementById('modalPostContent').value;
-            await createPost(content);
-            closePostModal();
-        }
-
-        function openReplyModal(postId, authorName, content) {
-            currentReplyPostId = postId;
-            document.getElementById('replyModal').classList.remove('hidden');
-            document.getElementById('replyToPost').innerHTML = `
-                <div class="flex items-center">
-                    <span class="font-bold">${authorName}</span>
-                    <span class="text-gray-500 ml-2">@${authorName.toLowerCase().replace(/\s+/g, '')}</span>
+  function createPostHTML(post) {
+    return `
+      <article class="border-b border-gray-800 p-4">
+        <div class="flex">
+          <img class="w-12 h-12 rounded-full" src="${post.author.avatar}" alt="${post.author.name}">
+          <div class="ml-4 flex-1">
+            <div class="flex items-center">
+              <span class="font-bold hover:underline">${post.author.name}</span>
+              <span class="text-gray-500 ml-2">· ${new Date(post.createdAt).toLocaleDateString()}</span>
+            </div>
+            <p class="mt-2">${post.content}</p>
+            <div class="flex justify-between mt-4 text-gray-500 max-w-md">
+              <button onclick="openReplyModal('${post._id}')" class="flex items-center group">
+                <div class="p-2 rounded-full group-hover:bg-[#1d9bf0]/10">
+                  💬
                 </div>
-                <p class="mt-2">${content}</p>
-            `;
-            document.getElementById('replyContent').focus();
-        }
+                <span class="ml-2">${post.replyCount || 0}</span>
+              </button>
+              <button onclick="handleRetweet('${post._id}')" class="flex items-center group">
+                <div class="p-2 rounded-full group-hover:bg-green-500/10">🔁</div>
+                <span class="ml-2">${post.retweets || 0}</span>
+              </button>
+              <button onclick="handleLike('${post._id}')" class="flex items-center group">
+                <div class="p-2 rounded-full group-hover:bg-pink-500/10">❤️</div>
+                <span class="ml-2">${post.likes || 0}</span>
+              </button>
+            </div>
+            <div class="ml-4 mt-2">
+              ${(post.replies || []).map(reply => `
+                <div class="border-l border-gray-800 pl-4 mb-2">
+                  <div class="flex items-center">
+                    <span class="font-bold">${reply.author.name}</span>
+                    <span class="text-gray-500 ml-2">· ${new Date(reply.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <p>${reply.content}</p>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      </article>`;
+  }
 
-        function closeReplyModal() {
-            document.getElementById('replyModal').classList.add('hidden');
-            document.getElementById('replyContent').value = '';
-            currentReplyPostId = null;
-        }
+  async function createPost(content = null) {
+    const postContent = content || document.getElementById('postContent')?.value;
+    if (!postContent?.trim()) return;
+    try {
+      await fetch('/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: postContent,
+          author: {
+            name: 'Anonymous',
+            avatar: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400&auto=format&fit=crop&q=60'
+          }
+        })
+      });
+      if (!content) document.getElementById('postContent').value = '';
+      await fetchPosts();
+    } catch (err) {
+      console.error('Error creating post:', err);
+    }
+  }
 
-        async function submitReply() {
-            if (!currentReplyPostId) return;
-            
-            const content = document.getElementById('replyContent').value;
-            if (!content.trim()) return;
+  async function handleLike(postId) {
+    try {
+      await fetch(`/api/posts/${postId}/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: 'anonymous' })
+      });
+      await fetchPosts();
+    } catch (err) {
+      console.error('Error liking post:', err);
+    }
+  }
 
-            try {
-                const response = await fetch(`/api/posts/${currentReplyPostId}/reply`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        content,
-                        author: {
-                            name: 'Anonymous',
-                            avatar: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400&auto=format&fit=crop&q=60'
-                        }
-                    })
-                });
+  async function handleRetweet(postId) {
+    try {
+      await fetch(`/api/posts/${postId}/retweet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: 'anonymous' })
+      });
+      await fetchPosts();
+    } catch (err) {
+      console.error('Error retweeting post:', err);
+    }
+  }
 
-                const result = await response.json();
-                if (!result.success) {
-                    throw new Error(result.error || 'Failed to add reply');
-                }
+  let searchTimeout;
+  async function handleSearch(event) {
+    clearTimeout(searchTimeout);
+    const query = event.target.value;
+    searchTimeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        const result = await res.json();
+        allPosts = result.data;
+        renderPosts();
+      } catch (err) {
+        console.error('Search failed:', err);
+      }
+    }, 500);
+  }
 
-                closeReplyModal();
-                await fetchPosts();
-            } catch (err) {
-                console.error('Error adding reply:', err);
-                alert('Failed to add reply. Please try again.');
-            }
-        }
+  function openPostModal() {
+    document.getElementById('postModal').classList.remove('hidden');
+  }
 
-        // Initial load
-        fetchPosts();
+  function createPostFromModal() {
+    const content = document.getElementById('modalPostContent').value;
+    if (!content.trim()) return;
+    createPost(content);
+    document.getElementById('modalPostContent').value = '';
+    document.getElementById('postModal').classList.add('hidden');
+  }
 
-        // Handle textarea auto-resize
-        const textareas = document.querySelectorAll('textarea');
-        textareas.forEach(textarea => {
-            textarea.addEventListener('input', function() {
-                this.style.height = 'auto';
-                this.style.height = (this.scrollHeight) + 'px';
-            });
-        });
+  function openReplyModal(postId) {
+    currentReplyPostId = postId;
+    const post = allPosts.find(p => p._id === postId);
+    document.getElementById('replyToPost').innerHTML = `
+      <p><span class="font-bold">${post.author.name}</span> ${post.content}</p>
+    `;
+    document.getElementById('replyModal').classList.remove('hidden');
+  }
+
+  function closeReplyModal() {
+    currentReplyPostId = null;
+    document.getElementById('replyModal').classList.add('hidden');
+  }
+
+  async function submitReply() {
+    const content = document.getElementById('replyContent').value;
+    if (!content.trim() || !currentReplyPostId) return;
+    try {
+      await fetch(`/api/posts/${currentReplyPostId}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          author: {
+            name: 'Anonymous',
+            avatar: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400&auto=format&fit=crop&q=60'
+          }
+        })
+      });
+      document.getElementById('replyContent').value = '';
+      closeReplyModal();
+      await fetchPosts();
+    } catch (err) {
+      console.error('Error replying to post:', err);
+    }
+  }
+
+  fetchPosts();
+
     </script>
 </body>
 </html>
