@@ -61,7 +61,7 @@ npm run dev
 5️⃣ **Open in Browser**  
 Visit the application at:  
 ```bash
-http://localhost:3000
+https://x-clone-bsey.onrender.com/
 ```
 
 ---
